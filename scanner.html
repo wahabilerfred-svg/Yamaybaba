@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crypto Signal Scanner</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #080c14;
+    font-family: 'Courier New', monospace;
+    color: #e0e0e0;
+    padding: 16px;
+    max-width: 480px;
+    margin: 0 auto;
+    min-height: 100vh;
+  }
+  .header { text-align: center; margin-bottom: 16px; }
+  .header-sub { font-size: 11px; letter-spacing: 6px; color: #00ffcc; margin-bottom: 4px; }
+  .header-title { font-size: 24px; font-weight: 900; letter-spacing: 3px; color: #fff; }
+  .header-desc { font-size: 11px; color: #555; margin-top: 2px; }
+
+  .filter-box {
+    background: #0d1520;
+    border: 1px solid #1a2a3a;
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 12px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+  }
+  .filter-label { font-size: 9px; color: #00ffcc; margin-bottom: 4px; }
+  input[type=number] {
+    width: 100%;
+    background: #111c2a;
+    border: 1px solid #1e3048;
+    color: #fff;
+    padding: 6px 8px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: 'Courier New', monospace;
+  }
+  select {
+    width: 100%;
+    background: #111c2a;
+    border: 1px solid #1e3048;
+    color: #fff;
+    padding: 6px 4px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-family: 'Courier New', monospace;
+  }
+
+  .scan-btn {
+    width: 100%;
+    padding: 14px;
+    background: #00ffcc;
+    color: #000;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 900;
+    letter-spacing: 3px;
+    cursor: pointer;
+    margin-bottom: 12px;
+    font-family: 'Courier New', monospace;
+    transition: background 0.2s;
+  }
+  .scan-btn:disabled { background: #009977; cursor: not-allowed; }
+
+  .progress {
+    background: #0d1520;
+    border: 1px solid #1a2a3a;
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+    font-size: 11px;
+    color: #00ffcc;
+    display: none;
+  }
+  .progress-bar-bg { background: #1a2a3a; border-radius: 4px; height: 4px; margin-top: 6px; }
+  .progress-bar { background: #00ffcc; height: 4px; border-radius: 4px; transition: width 0.3s; }
+
+  .stats { display: flex; gap: 8px; margin-bottom: 12px; }
+  .stat { flex: 1; border-radius: 8px; padding: 8px; text-align: center; }
+  .stat.good { background: #0a1f0f; border: 1px solid #00ff6620; }
+  .stat.bad { background: #1a0a0a; border: 1px solid #ff003320; }
+  .stat.total { background: #0d1520; border: 1px solid #1a2a3a; }
+  .stat-num { font-size: 22px; font-weight: 900; }
+  .stat.good .stat-num { color: #00ff88; }
+  .stat.bad .stat-num { color: #ff4455; }
+  .stat.total .stat-num { color: #aaa; }
+  .stat-label { font-size: 9px; }
+  .stat.good .stat-label { color: #00ff8880; }
+  .stat.bad .stat-label { color: #ff445580; }
+  .stat.total .stat-label { color: #555; }
+
+  .toggle { display: flex; gap: 8px; margin-bottom: 12px; }
+  .toggle-btn {
+    flex: 1; padding: 8px; border-radius: 7px; border: none; cursor: pointer;
+    font-weight: 700; font-size: 11px; letter-spacing: 1px;
+    font-family: 'Courier New', monospace;
+    background: #111c2a; color: #555;
+  }
+  .toggle-btn.active { background: #00ffcc; color: #000; }
+
+  .signal-card {
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 10px;
+  }
+  .signal-card.ok { background: #0a1a0f; border: 1px solid #00ff4430; border-left: 3px solid #00ff88; }
+  .signal-card.fail { background: #130a0a; border: 1px solid #ff003320; border-left: 3px solid #ff3344; }
+
+  .card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .card-left { display: flex; align-items: center; gap: 8px; }
+  .pair-name { font-size: 18px; font-weight: 900; color: #fff; }
+  .direction-badge { padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 900; letter-spacing: 2px; }
+  .direction-badge.long { background: #00aa4420; color: #00ff88; border: 1px solid #00ff4430; }
+  .direction-badge.short { background: #aa000020; color: #ff4455; border: 1px solid #ff334430; }
+
+  .tags { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 8px; }
+  .tag { padding: 2px 7px; border-radius: 4px; font-size: 10px; }
+  .tag.vol-ok { background: #004433; color: #00ffaa; border: 1px solid #00ffaa30; }
+  .tag.vol-bad { background: #330011; color: #ff4455; border: 1px solid #ff445530; }
+  .tag.rsi { background: #001a2a; color: #4499ff; border: 1px solid #4499ff30; }
+  .tag.conf-ok { background: #004433; color: #00ffaa; border: 1px solid #00ffaa30; }
+  .tag.conf-bad { background: #330011; color: #ff4455; border: 1px solid #ff445530; }
+
+  .tp-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; margin-bottom: 8px; }
+  .tp-cell { background: #0d1520; border-radius: 5px; padding: 5px 6px; text-align: center; }
+  .tp-label { font-size: 8px; color: #555; margin-bottom: 1px; }
+  .tp-val { font-size: 11px; font-weight: 700; }
+  .tp-cell.sl .tp-val { color: #ff4455; }
+  .tp-cell.tp1 .tp-val { color: #00ff88; }
+  .tp-cell.tp2 .tp-val { color: #00ccff; }
+
+  .price-row { font-size: 11px; color: #666; margin-bottom: 6px; }
+  .price-val { color: #aaa; }
+
+  .reasons { font-size: 10px; line-height: 1.8; }
+  .reason-ok { color: #00aa66; }
+  .reason-warn { color: #ffaa00; }
+  .reason-fail { color: #aa3344; }
+
+  .conf-badge {
+    padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 900;
+    margin-top: 8px; display: inline-block;
+  }
+  .conf-strong { background: #004433; color: #00ff88; border: 1px solid #00ff4430; }
+  .conf-moderate { background: #2a1a00; color: #ffaa00; border: 1px solid #ffaa0030; }
+
+  .empty { text-align: center; padding: 40px; color: #444; }
+  .empty-icon { font-size: 32px; margin-bottom: 8px; }
+
+  .footer { text-align: center; margin-top: 20px; font-size: 10px; color: #222; padding-bottom: 20px; }
+  .last-scan { text-align: center; font-size: 10px; color: #444; margin-bottom: 10px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-sub">CRYPTO</div>
+  <div class="header-title">SIGNAL SCANNER</div>
+  <div class="header-desc">Binance • Tiempo real</div>
+</div>
+
+<div class="filter-box">
+  <div>
+    <div class="filter-label">VOL MÍN ×</div>
+    <input type="number" id="minVol" value="2.0" step="0.5" min="0.5">
+  </div>
+  <div>
+    <div class="filter-label">CONFIANZA %</div>
+    <input type="number" id="minConf" value="65" min="50" max="100">
+  </div>
+  <div>
+    <div class="filter-label">TIMEFRAME</div>
+    <select id="tf">
+      <option value="15m" selected>15m</option>
+      <option value="5m">5m</option>
+      <option value="1h">1h</option>
+      <option value="4h">4h</option>
+    </select>
+  </div>
+</div>
+
+<button class="scan-btn" id="scanBtn" onclick="startScan()">⚡ ESCANEAR</button>
+
+<div class="progress" id="progress">
+  <span id="progressText">Iniciando escaneo...</span>
+  <div class="progress-bar-bg"><div class="progress-bar" id="progressBar" style="width:0%"></div></div>
+</div>
+
+<div class="stats">
+  <div class="stat good"><div class="stat-num" id="countGood">-</div><div class="stat-label">VÁLIDAS</div></div>
+  <div class="stat bad"><div class="stat-num" id="countBad">-</div><div class="stat-label">DESCARTADAS</div></div>
+  <div class="stat total"><div class="stat-num" id="countTotal">-</div><div class="stat-label">ESCANEADAS</div></div>
+</div>
+
+<div class="toggle">
+  <button class="toggle-btn active" id="btnValid" onclick="setView('valid')">✅ SOLO VÁLIDAS</button>
+  <button class="toggle-btn" id="btnAll" onclick="setView('all')">📋 TODAS</button>
+</div>
+
+<div class="last-scan" id="lastScan"></div>
+<div id="signalList"><div class="empty"><div class="empty-icon">⚡</div><div>Pulsa ESCANEAR para buscar señales</div></div></div>
+
+<div class="footer">No es asesoría financiera • Usa gestión de riesgo</div>
+
+<script>
+const PAIRS = [
+  'BTCUSDT','ETHUSDT','BNBUSDT','SOLUSDT','XRPUSDT','ADAUSDT','AVAXUSDT','DOGEUSDT',
+  'DOTUSDT','MATICUSDT','LINKUSDT','UNIUSDT','LTCUSDT','ATOMUSDT','NEARUSDT','FTMUSDT',
+  'SANDUSDT','MANAUSDT','AXSUSDT','GALAUSDT','APTUSDT','ARBUSDT','OPUSDT','INJUSDT',
+  'SUIUSDT','SEIUSDT','TIAUSDT','WIFUSDT','FETUSDT','RENDERUSDT','IMXUSDT','GRTUSDT',
+  'AAVEUSDT','MKRUSDT','COMPUSDT','SNXUSDT','CRVUSDT','LDOUSDT','RPLUSDT','STXUSDT',
+  'RUNEUSDT','THETAUSDT','FLOWUSDT','EGLDUSDT','KSMUSDT','ZECUSDT','XMRUSDT','FILUSDT',
+  'ICPUSDT','TAOUSDT'
+];
+
+let allResults = [];
+let viewMode = 'valid';
+
+function calcEMA(prices, period) {
+  const k = 2 / (period + 1);
+  let ema = prices[0];
+  for (let i = 1; i < prices.length; i++) {
+    ema = prices[i] * k + ema * (1 - k);
+  }
+  return ema;
+}
+
+function calcRSI(closes, period = 14) {
+  if (closes.length < period + 1) return 50;
+  let gains = 0, losses = 0;
+  for (let i = closes.length - period; i < closes.length; i++) {
+    const diff = closes[i] - closes[i - 1];
+    if (diff > 0) gains += diff;
+    else losses -= diff;
+  }
+  if (losses === 0) return 100;
+  const rs = gains / losses;
+  return 100 - (100 / (1 + rs));
+}
+
+function calcVolSpike(volumes) {
+  if (volumes.length < 21) return 1;
+  const avg = volumes.slice(-21, -1).reduce((a, b) => a + b, 0) / 20;
+  const last = volumes[volumes.length - 1];
+  return avg > 0 ? last / avg : 1;
+}
+
+function analyzeSignal(pair, klines, minVol, minConf) {
+  const closes = klines.map(k => parseFloat(k[4]));
+  const volumes = klines.map(k => parseFloat(k[5]));
+  const currentPrice = closes[closes.length - 1];
+
+  const ema9 = calcEMA(closes, 9);
+  const ema21 = calcEMA(closes, 21);
+  const rsi = calcRSI(closes);
+  const volSpike = calcVolSpike(volumes);
+
+  let direction = null;
+  let emaCruce = false;
+
+  const prevEma9 = calcEMA(closes.slice(0, -1), 9);
+  const prevEma21 = calcEMA(closes.slice(0, -1), 21);
+
+  if (prevEma9 <= prevEma21 && ema9 > ema21) {
+    direction = 'LONG';
+    emaCruce = true;
+  } else if (prevEma9 >= prevEma21 && ema9 < ema21) {
+    direction = 'SHORT';
+    emaCruce = true;
+  } else if (ema9 > ema21) {
+    direction = 'LONG';
+  } else {
+    direction = 'SHORT';
+  }
+
+  const highs = klines.map(k => parseFloat(k[2]));
+  const lows = klines.map(k => parseFloat(k[3]));
+  let atrSum = 0;
+  const atrPeriod = 14;
+  for (let i = closes.length - atrPeriod; i < closes.length; i++) {
+    atrSum += highs[i] - lows[i];
+  }
+  const atr = atrSum / atrPeriod;
+
+  const slPct = (atr * 1.5 / currentPrice) * 100;
+  const tp1Pct = slPct * 2;
+  const tp2Pct = slPct * 3;
+
+  let slPrice, tp1Price, tp2Price;
+  if (direction === 'LONG') {
+    slPrice = currentPrice * (1 - slPct / 100);
+    tp1Price = currentPrice * (1 + tp1Pct / 100);
+    tp2Price = currentPrice * (1 + tp2Pct / 100);
+  } else {
+    slPrice = currentPrice * (1 + slPct / 100);
+    tp1Price = currentPrice * (1 - tp1Pct / 100);
+    tp2Price = currentPrice * (1 - tp2Pct / 100);
+  }
+
+  let confidence = 50;
+  const passes = [], reasons = [];
+
+  if (emaCruce) { confidence += 15; passes.push('✅ EMA cruce reciente'); }
+  else passes.push('⚠️ EMA ' + (direction === 'LONG' ? 'alcista' : 'bajista'));
+
+  if (volSpike >= 2) { confidence += 20; passes.push(`✅ Volumen fuerte ×${volSpike.toFixed(2)}`); }
+  else if (volSpike >= 1.5) { confidence += 10; passes.push(`⚠️ Volumen moderado ×${volSpike.toFixed(2)}`); }
+  else { reasons.push(`❌ Volumen bajo ×${volSpike.toFixed(2)}`); }
+
+  if (direction === 'LONG' && rsi < 40) { confidence += 15; passes.push(`✅ RSI sobrevendido ${rsi.toFixed(1)}`); }
+  else if (direction === 'LONG' && rsi < 50) { confidence += 8; passes.push(`⚠️ RSI ${rsi.toFixed(1)}`); }
+  else if (direction === 'SHORT' && rsi > 60) { confidence += 15; passes.push(`✅ RSI sobrecomprado ${rsi.toFixed(1)}`); }
+  else if (direction === 'SHORT' && rsi > 50) { confidence += 8; passes.push(`⚠️ RSI ${rsi.toFixed(1)}`); }
+  else { reasons.push(`⚠️ RSI ${rsi.toFixed(1)} no ideal`); }
+
+  confidence = Math.min(confidence, 95);
+
+  const volOk = volSpike >= minVol;
+  const confOk = confidence >= minConf;
+  const ok = volOk && confOk;
+
+  if (!volOk) reasons.push(`❌ Vol ×${volSpike.toFixed(2)} < ×${minVol}`);
+  if (!confOk) reasons.push(`❌ Confianza ${confidence}% < ${minConf}%`);
+
+  return {
+    pair: pair.replace('USDT', ''),
+    direction,
+    price: currentPrice,
+    rsi: rsi.toFixed(1),
+    volSpike: volSpike.toFixed(2),
+    confidence,
+    slPct: slPct.toFixed(2),
+    tp1Pct: tp1Pct.toFixed(2),
+    tp2Pct: tp2Pct.toFixed(2),
+    slPrice, tp1Price, tp2Price,
+    emaCruce,
+    ok, passes, reasons,
+  };
+}
+
+async function fetchKlines(pair, tf) {
+  // timestamp evita caché del navegador — datos siempre frescos
+  const url = `https://api.binance.com/api/v3/klines?symbol=${pair}&interval=${tf}&limit=50&timestamp=${Date.now()}`;
+  const res = await fetch(url, { cache: 'no-store' });
+  if (!res.ok) throw new Error('Error');
+  return res.json();
+}
+
+async function startScan() {
+  const btn = document.getElementById('scanBtn');
+  const progressEl = document.getElementById('progress');
+  const progressBar = document.getElementById('progressBar');
+  const progressText = document.getElementById('progressText');
+
+  btn.disabled = true;
+  btn.textContent = '⚡ ESCANEANDO...';
+  progressEl.style.display = 'block';
+  allResults = [];
+
+  const minVol = parseFloat(document.getElementById('minVol').value) || 2;
+  const minConf = parseInt(document.getElementById('minConf').value) || 65;
+  const tf = document.getElementById('tf').value;
+
+  const total = PAIRS.length;
+
+  for (let i = 0; i < PAIRS.length; i++) {
+    const pair = PAIRS[i];
+    progressText.textContent = `Escaneando ${pair.replace('USDT','')} (${i+1}/${total})...`;
+    progressBar.style.width = ((i+1)/total*100) + '%';
+
+    try {
+      const klines = await fetchKlines(pair, tf);
+      if (klines.length >= 30) {
+        const signal = analyzeSignal(pair, klines, minVol, minConf);
+        allResults.push(signal);
+      }
+    } catch(e) {
+      // par ignorado si falla
+    }
+
+    await new Promise(r => setTimeout(r, 80));
+  }
+
+  allResults.sort((a, b) => {
+    if (a.ok && !b.ok) return -1;
+    if (!a.ok && b.ok) return 1;
+    return b.confidence - a.confidence;
+  });
+
+  const good = allResults.filter(s => s.ok).length;
+  const bad = allResults.filter(s => !s.ok).length;
+  const done = allResults.length;
+
+  document.getElementById('countGood').textContent = good;
+  document.getElementById('countBad').textContent = bad;
+  document.getElementById('countTotal').textContent = done;
+
+  const now = new Date();
+  document.getElementById('lastScan').textContent = `Último escaneo: ${now.toLocaleTimeString()} · TF: ${tf} · ${done} pares`;
+
+  progressEl.style.display = 'none';
+  btn.disabled = false;
+  btn.textContent = '⚡ ESCANEAR';
+
+  render();
+}
+
+function fmt(price) {
+  if (price >= 1000) return price.toFixed(2);
+  if (price >= 1) return price.toFixed(4);
+  if (price >= 0.001) return price.toFixed(5);
+  return price.toFixed(7);
+}
+
+function render() {
+  const minVol = parseFloat(document.getElementById('minVol').value) || 2;
+  const minConf = parseInt(document.getElementById('minConf').value) || 65;
+  const list = viewMode === 'valid' ? allResults.filter(s => s.ok) : allResults;
+  const container = document.getElementById('signalList');
+
+  if (allResults.length === 0) {
+    container.innerHTML = `<div class="empty"><div class="empty-icon">⚡</div><div>Pulsa ESCANEAR para buscar señales</div></div>`;
+    return;
+  }
+
+  if (list.length === 0) {
+    container.innerHTML = `<div class="empty"><div class="empty-icon">🔍</div><div>Ninguna señal pasa los filtros</div><div style="font-size:12px;margin-top:4px;color:#333">Baja los filtros o pulsa TODAS</div></div>`;
+    return;
+  }
+
+  container.innerHTML = list.map(sig => `
+    <div class="signal-card ${sig.ok ? 'ok' : 'fail'}">
+      <div class="card-top">
+        <div class="card-left">
+          <span class="pair-name">${sig.pair}</span>
+          <span class="direction-badge ${sig.direction.toLowerCase()}">${sig.direction}</span>
+        </div>
+        <span style="font-size:18px">${sig.ok ? '✅' : '❌'}</span>
+      </div>
+      <div class="price-row">Entrada: <span class="price-val">$${fmt(sig.price)}</span></div>
+      <div class="tags">
+        <span class="tag ${parseFloat(sig.volSpike) >= minVol ? 'vol-ok' : 'vol-bad'}">VOL ×${sig.volSpike}</span>
+        <span class="tag rsi">RSI ${sig.rsi}</span>
+        <span class="tag ${sig.confidence >= minConf ? 'conf-ok' : 'conf-bad'}">${sig.confidence}% conf</span>
+      </div>
+      <div class="tp-row">
+        <div class="tp-cell sl"><div class="tp-label">SL</div><div class="tp-val">-${sig.slPct}%</div></div>
+        <div class="tp-cell tp1"><div class="tp-label">TP1</div><div class="tp-val">+${sig.tp1Pct}%</div></div>
+        <div class="tp-cell tp2"><div class="tp-label">TP2</div><div class="tp-val">+${sig.tp2Pct}%</div></div>
+      </div>
+      <div class="reasons">
+        ${sig.passes.map(p => `<div class="${p.startsWith('✅') ? 'reason-ok' : 'reason-warn'}">${p}</div>`).join('')}
+        ${sig.reasons.map(r => `<div class="reason-fail">${r}</div>`).join('')}
+      </div>
+      ${sig.ok ? `<div class="conf-badge ${sig.confidence >= 75 ? 'conf-strong' : 'conf-moderate'}">${sig.confidence >= 75 ? '✅ SEÑAL FUERTE' : '⚠️ SEÑAL MODERADA'} — Conf: ${sig.confidence}%</div>` : ''}
+    </div>
+  `).join('');
+}
+
+function setView(mode) {
+  viewMode = mode;
+  document.getElementById('btnValid').classList.toggle('active', mode === 'valid');
+  document.getElementById('btnAll').classList.toggle('active', mode === 'all');
+  render();
+}
+</script>
+</body>
+</html>
